@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <title>Трекер рисков — тесты</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 2rem; color: #1a1a1a; }
+    h1 { font-size: 1.25rem; }
+    #summary { font-weight: bold; padding: 0.5rem 0.75rem; border-radius: 4px; margin-bottom: 1rem; display: inline-block; }
+    .summary--ok { background: #d4edda; color: #155724; }
+    .summary--fail { background: #f8d7da; color: #721c24; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 0.25rem 0; font-family: ui-monospace, monospace; font-size: 0.9rem; }
+    .test--pass { color: #155724; }
+    .test--fail { color: #721c24; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>Трекер рисков — модульные тесты</h1>
+  <div id="summary">Выполняется...</div>
+  <ul id="results"></ul>
+
+  <script type="module">
+    import { registerRiskModelTests } from './js/tests/risk-model.test.js';
+
+    const results = [];
+
+    function test(name, fn) {
+      try {
+        fn();
+        results.push({ name, passed: true });
+      } catch (error) {
+        results.push({ name, passed: false, message: error.message });
+      }
+    }
+
+    function stringify(value) {
+      try {
+        return JSON.stringify(value);
+      } catch {
+        return String(value);
+      }
+    }
+
+    const assert = {
+      ok(value, message) {
+        if (!value) {
+          throw new Error(message || `Ожидалось истинное значение, получено ${stringify(value)}`);
+        }
+      },
+      strictEqual(actual, expected, message) {
+        if (actual !== expected) {
+          throw new Error(message || `Ожидалось ${stringify(expected)}, получено ${stringify(actual)}`);
+        }
+      },
+      deepEqual(actual, expected, message) {
+        const a = stringify(actual);
+        const b = stringify(expected);
+        if (a !== b) {
+          throw new Error(message || `Ожидалось ${b}, получено ${a}`);
+        }
+      },
+    };
+
+    registerRiskModelTests(test, assert);
+
+    const summaryEl = document.getElementById('summary');
+    const listEl = document.getElementById('results');
+
+    const passedCount = results.filter((result) => result.passed).length;
+    const allPassed = passedCount === results.length;
+
+    summaryEl.textContent = `Пройдено ${passedCount} из ${results.length}`;
+    summaryEl.className = allPassed ? 'summary--ok' : 'summary--fail';
+
+    for (const result of results) {
+      const li = document.createElement('li');
+      li.className = result.passed ? 'test--pass' : 'test--fail';
+      li.textContent = result.passed ? `✓ ${result.name}` : `✗ ${result.name} — ${result.message}`;
+      listEl.appendChild(li);
+    }
+
+    console.log(`Тесты: пройдено ${passedCount} из ${results.length}`);
+  </script>
+</body>
+</html>
