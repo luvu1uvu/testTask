@@ -101,6 +101,7 @@ function createRiskRow(risk, onEdit, onDelete) {
   editButton.type = 'button';
   editButton.className = 'btn btn--secondary btn--small';
   editButton.textContent = 'Изменить';
+  editButton.setAttribute('aria-label', `Изменить риск «${risk.title}»`);
   editButton.addEventListener('click', () => {
     if (typeof onEdit === 'function') onEdit(risk.id);
   });
@@ -109,6 +110,7 @@ function createRiskRow(risk, onEdit, onDelete) {
   deleteButton.type = 'button';
   deleteButton.className = 'btn btn--secondary btn--small';
   deleteButton.textContent = 'Удалить';
+  deleteButton.setAttribute('aria-label', `Удалить риск «${risk.title}»`);
   deleteButton.addEventListener('click', () => {
     // Первый клик только открывает подтверждение — deleteRisk() вызывается
     // (через onDelete из app.js) исключительно из onConfirm диалога.

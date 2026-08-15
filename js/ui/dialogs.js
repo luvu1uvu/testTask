@@ -20,6 +20,8 @@ export function showConfirmDialog({
 } = {}) {
   if (typeof closeActiveDialog === 'function') closeActiveDialog();
 
+  const previouslyFocusedElement = document.activeElement;
+
   const overlay = document.createElement('div');
   overlay.className = 'dialog-overlay';
 
@@ -45,9 +47,42 @@ export function showConfirmDialog({
   confirmButton.className = danger ? 'btn btn--danger' : 'btn btn--primary';
   confirmButton.textContent = confirmLabel;
 
+  // Единственные фокусируемые элементы диалога — кнопки «Отмена» и
+  // подтверждения, в порядке их размещения в DOM (см. actions.append ниже).
+  const focusableElements = [cancelButton, confirmButton];
+
   function close() {
     overlay.remove();
+    document.removeEventListener('keydown', handleKeydown);
     closeActiveDialog = null;
+    // Возврат фокуса на элемент, открывший диалог, только если он ещё в DOM.
+    if (previouslyFocusedElement && document.contains(previouslyFocusedElement)) {
+      previouslyFocusedElement.focus();
+    }
+  }
+
+  function handleKeydown(event) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      close();
+      if (typeof onCancel === 'function') onCancel();
+      return;
+    }
+    if (event.key !== 'Tab') return;
+
+    // Ловушка фокуса: Tab/Shift+Tab циклически удерживают фокус внутри
+    // диалога, не пуская его в фоновый интерфейс.
+    const first = focusableElements[0];
+    const last = focusableElements[focusableElements.length - 1];
+    if (event.shiftKey) {
+      if (document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      }
+    } else if (document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
   }
 
   cancelButton.addEventListener('click', () => {
@@ -66,6 +101,7 @@ export function showConfirmDialog({
   document.body.appendChild(overlay);
 
   closeActiveDialog = close;
+  document.addEventListener('keydown', handleKeydown);
 
   // Фокус по умолчанию — на «Отмена», даже для опасного действия: случайное
   // нажатие Enter сразу после открытия диалога не должно ничего удалять.
