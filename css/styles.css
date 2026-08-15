@@ -1,0 +1,156 @@
+/* Базовые стили каркаса страницы: шапка, реестр рисков, метки приоритета,
+   пустое состояние. Оформление метки приоритета — не единственный носитель
+   значения: текстовая подпись показывается всегда наравне с цветом. */
+
+:root {
+  --color-bg: #f7f7f8;
+  --color-surface: #ffffff;
+  --color-border: #dcdcdc;
+  --color-text: #1a1a1a;
+  --color-text-muted: #5f5f5f;
+  --color-primary: #2563eb;
+  --color-primary-hover: #1d4ed8;
+
+  --priority-low-bg: #d4edda;
+  --priority-low-text: #155724;
+  --priority-medium-bg: #fff3cd;
+  --priority-medium-text: #7a5b00;
+  --priority-high-bg: #ffe0b2;
+  --priority-high-text: #8a4b00;
+  --priority-critical-bg: #f8d7da;
+  --priority-critical-text: #721c24;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  background: var(--color-bg);
+  color: var(--color-text);
+}
+
+.app-header {
+  padding: 1.5rem 2rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.app-header h1 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+}
+
+.storage-warning {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 6px;
+  color: #3730a3;
+  font-size: 0.9rem;
+  display: inline-block;
+}
+
+main {
+  padding: 1.5rem 2rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.risk-table-wrapper {
+  overflow-x: auto;
+  border-radius: 6px;
+}
+
+.risk-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+}
+
+.risk-table th,
+.risk-table td {
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  border-bottom: 1px solid var(--color-border);
+  font-size: 0.9rem;
+  vertical-align: top;
+}
+
+.risk-table th {
+  background: #f0f0f2;
+  font-weight: 600;
+}
+
+.risk-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.risk-row__title {
+  font-weight: 600;
+}
+
+.priority-badge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.priority-badge--low {
+  background: var(--priority-low-bg);
+  color: var(--priority-low-text);
+}
+
+.priority-badge--medium {
+  background: var(--priority-medium-bg);
+  color: var(--priority-medium-text);
+}
+
+.priority-badge--high {
+  background: var(--priority-high-bg);
+  color: var(--priority-high-text);
+}
+
+.priority-badge--critical {
+  background: var(--priority-critical-bg);
+  color: var(--priority-critical-text);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1.5rem;
+  background: var(--color-surface);
+  border: 1px dashed var(--color-border);
+  border-radius: 8px;
+}
+
+.empty-state__message {
+  margin: 0 0 1rem;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+}
+
+.btn {
+  font: inherit;
+  padding: 0.6rem 1.2rem;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+}
+
+.btn--primary {
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.btn--primary:hover {
+  background: var(--color-primary-hover);
+}
