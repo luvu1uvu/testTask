@@ -1,41 +1,73 @@
-// Точка входа приложения: читает риски через storage.js, оставляет только
-// активные статусы по умолчанию, сортирует через модель и переключает между
-// видом реестра и видом формы создания/редактирования риска.
+// Точка входа приложения: читает риски через storage.js, применяет текущий
+// фильтр статуса, сортирует через модель и переключает между видом реестра
+// и видом формы создания/редактирования риска.
 
 import { getAll, addRisk, updateRisk } from './storage.js';
 import { compareRisks, createRisk } from './risk-model.js';
 import { renderRiskList } from './ui/risk-list.js';
 import { renderRiskForm } from './ui/risk-form.js';
-
-const ACTIVE_STATUSES = ['open', 'in_progress', 'monitoring'];
+import { renderFilters, getStatusesForFilter, DEFAULT_FILTER } from './ui/filters.js';
 
 function main() {
   const container = document.getElementById('risk-list-container');
+  const filtersContainer = document.getElementById('filters-container');
   const addButton = document.getElementById('add-risk-btn');
 
-  function loadActiveRisks() {
+  // Текущий выбранный режим фильтра — состояние текущей сессии приложения
+  // (переменная модуля, не localStorage): переживает перерисовку страницы
+  // внутри одной загрузки приложения, включая сохранение отредактированного
+  // риска, но не переживает F5 — персистентность после перезагрузки в этом
+  // шаге не требуется.
+  let currentFilter = DEFAULT_FILTER;
+
+  function loadAllRisks() {
     const result = getAll();
     // Отдельный экран для повреждённых данных — шаг 6. Здесь, чтобы не
     // падать и не перезаписывать хранилище, повреждённые данные на этом
     // шаге отображаются как пустой реестр.
-    const risks = result.status === 'ok' ? result.risks : [];
-    return risks.filter((risk) => ACTIVE_STATUSES.includes(risk.status)).sort(compareRisks);
+    return result.status === 'ok' ? result.risks : [];
+  }
+
+  function resetFilter() {
+    currentFilter = DEFAULT_FILTER;
+    showList();
   }
 
   function showList() {
-    const risks = loadActiveRisks();
-    // Постоянная кнопка дублировала бы кнопку пустого состояния, пока в
-    // отображаемом реестре нет ни одного риска — показывается только после
-    // появления хотя бы одной записи.
-    addButton.hidden = risks.length === 0;
-    renderRiskList(container, risks, {
+    const allRisks = loadAllRisks();
+    const isStoreEmpty = allRisks.length === 0;
+    const statusesForFilter = getStatusesForFilter(currentFilter);
+    const filteredRisks = allRisks
+      .filter((risk) => statusesForFilter.includes(risk.status))
+      .sort(compareRisks);
+
+    // Постоянная кнопка и панель фильтра дублировали бы пустое состояние
+    // реестра, пока хранилище действительно пусто — показываются, как
+    // только в хранилище появляется хотя бы один риск, независимо от того,
+    // что показывает текущий фильтр.
+    addButton.hidden = isStoreEmpty;
+    filtersContainer.hidden = isStoreEmpty;
+
+    renderFilters(filtersContainer, {
+      current: currentFilter,
+      onChange: (value) => {
+        currentFilter = value;
+        showList();
+      },
+      onReset: resetFilter,
+    });
+
+    renderRiskList(container, filteredRisks, {
       onCreateFirst: showCreateForm,
       onEdit: showEditForm,
+      onResetFilters: resetFilter,
+      isStoreEmpty,
     });
   }
 
   function showCreateForm() {
     addButton.hidden = true;
+    filtersContainer.hidden = true;
     renderRiskForm(container, {
       onSubmit: (data) => {
         addRisk(createRisk(data));
@@ -54,6 +86,7 @@ function main() {
     }
 
     addButton.hidden = true;
+    filtersContainer.hidden = true;
     renderRiskForm(container, {
       risk,
       onSubmit: (data) => {

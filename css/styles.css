@@ -172,8 +172,37 @@ main {
 
 .toolbar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
   margin-bottom: 1rem;
+}
+
+.filters {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.filters__label {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.filters__select {
+  font: inherit;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  background: var(--color-surface);
+  color: var(--color-text);
+}
+
+.filters__select:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 1px;
 }
 
 .risk-form {

@@ -1,15 +1,19 @@
 // UI-модуль: форма создания/редактирования риска. Только DOM и обвязка вокруг
 // значений полей — валидация полностью делегирована validateRisk() из
 // risk-model.js, чтобы не дублировать расходящуюся бизнес-логику. Статус
-// риска в этой форме не отображается и не редактируется (шаг 5).
+// риска показывается и редактируется только в режиме редактирования — при
+// создании поля статуса нет вообще, новый риск всегда получает 'open' через
+// createRisk().
 
-import { validateRisk } from '../risk-model.js';
+import { validateRisk, STATUS_CODES, getStatusLabel } from '../risk-model.js';
 
 const SCALE_VALUES = [1, 2, 3, 4, 5];
 
 // Порядок определяет, какое поле получит фокус первым при нескольких
 // одновременных ошибках — сверху вниз, как поля расположены в форме.
-const FIELD_ORDER = ['title', 'description', 'probability', 'impact', 'measure', 'responsible'];
+// 'status' присутствует только при редактировании — см. fieldOrder ниже.
+const BASE_FIELD_ORDER = ['title', 'description', 'probability', 'impact'];
+const RESPONSE_FIELD_ORDER = ['measure', 'responsible'];
 
 function createFieldError(id) {
   const el = document.createElement('p');
@@ -74,6 +78,39 @@ function createScaleField({ id, label, required = false }) {
   return { wrapper, input: select, error };
 }
 
+// Select статуса: ровно пять внутренних кодов из STATUS_CODES, подписи —
+// через getStatusLabel(), без ручного дублирования кодов/текста. Всегда
+// имеет выбранное значение (текущий статус риска) — в отличие от
+// createScaleField() здесь нет пустого плейсхолдера, так как редактируемый
+// риск уже имеет валидный статус.
+function createStatusField({ id, label, required = false }) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'form-field';
+
+  const labelEl = document.createElement('label');
+  labelEl.setAttribute('for', id);
+  labelEl.className = 'form-field__label';
+  labelEl.textContent = required ? `${label} *` : label;
+
+  const select = document.createElement('select');
+  select.id = id;
+  select.name = id;
+  select.className = 'form-field__input';
+
+  for (const code of STATUS_CODES) {
+    const option = document.createElement('option');
+    option.value = code;
+    option.textContent = getStatusLabel(code);
+    select.appendChild(option);
+  }
+
+  const error = createFieldError(id);
+  select.setAttribute('aria-describedby', error.id);
+
+  wrapper.append(labelEl, select, error);
+  return { wrapper, input: select, error };
+}
+
 // Рендерит форму создания (risk === null) или редактирования (risk — текущая
 // запись) в container. onSubmit(data) вызывается только с уже валидными
 // данными полей (без id/даты/статуса — их проставляют вызывающий код и
@@ -102,6 +139,9 @@ export function renderRiskForm(container, { risk = null, onSubmit, onCancel } = 
   const impactField = createScaleField({ id: 'risk-impact', label: 'Влияние (1–5)', required: true });
   const measureField = createTextField({ id: 'risk-measure', label: 'Мера реагирования', multiline: true });
   const responsibleField = createTextField({ id: 'risk-responsible', label: 'Ответственный' });
+  // Поле статуса создаётся только в режиме редактирования — при создании
+  // элемента для него в форме нет вообще, не только визуально скрыт.
+  const statusField = isEdit ? createStatusField({ id: 'risk-status', label: 'Статус', required: true }) : null;
 
   const fields = {
     title: titleField,
@@ -111,6 +151,14 @@ export function renderRiskForm(container, { risk = null, onSubmit, onCancel } = 
     measure: measureField,
     responsible: responsibleField,
   };
+  if (statusField) fields.status = statusField;
+
+  // Порядок полей для показа ошибок и перевода фокуса: статус — только при
+  // редактировании, между оценками и мерой/ответственным, как и расположен
+  // в самой форме.
+  const fieldOrder = isEdit
+    ? [...BASE_FIELD_ORDER, 'status', ...RESPONSE_FIELD_ORDER]
+    : [...BASE_FIELD_ORDER, ...RESPONSE_FIELD_ORDER];
 
   if (isEdit) {
     titleField.input.value = risk.title;
@@ -119,6 +167,7 @@ export function renderRiskForm(container, { risk = null, onSubmit, onCancel } = 
     impactField.input.value = String(risk.impact);
     measureField.input.value = risk.measure ?? '';
     responsibleField.input.value = risk.responsible ?? '';
+    statusField.input.value = risk.status;
   }
 
   const actions = document.createElement('div');
@@ -145,26 +194,27 @@ export function renderRiskForm(container, { risk = null, onSubmit, onCancel } = 
     descriptionField.wrapper,
     probabilityField.wrapper,
     impactField.wrapper,
+    ...(statusField ? [statusField.wrapper] : []),
     measureField.wrapper,
     responsibleField.wrapper,
     actions,
   );
 
   function clearFieldErrors() {
-    for (const key of FIELD_ORDER) {
+    for (const key of fieldOrder) {
       fields[key].error.hidden = true;
       fields[key].error.textContent = '';
       fields[key].input.classList.remove('form-field__input--invalid');
     }
   }
 
-  // Показывает ошибки у полей в порядке FIELD_ORDER и переводит фокус на
+  // Показывает ошибки у полей в порядке fieldOrder и переводит фокус на
   // первое из них с ошибкой — этот порядок и есть источник «первого
   // некорректного поля» для формы.
   function showFieldErrors(errors) {
     clearFieldErrors();
     let firstInvalidInput = null;
-    for (const key of FIELD_ORDER) {
+    for (const key of fieldOrder) {
       const message = errors[key];
       if (!message) continue;
       fields[key].error.textContent = message;
@@ -183,9 +233,10 @@ export function renderRiskForm(container, { risk = null, onSubmit, onCancel } = 
     const rawProbability = probabilityField.input.value;
     const rawImpact = impactField.input.value;
 
-    // Статус в данные валидации подставляется, но никогда не отправляется в
-    // onSubmit — редактирование не должно менять статус риска, а создание
-    // всегда идёт через createRisk(), которая сама проставляет 'open'.
+    // При редактировании статус для валидации берётся из выбора в форме —
+    // именно он решает, обязательны ли мера/ответственный. При создании
+    // элемента статуса нет, поэтому подставляется фиксированный 'open',
+    // как и раньше (createRisk() сама проставит его).
     const validationData = {
       title: titleField.input.value,
       description: descriptionField.input.value,
@@ -193,7 +244,7 @@ export function renderRiskForm(container, { risk = null, onSubmit, onCancel } = 
       impact: rawImpact === '' ? undefined : Number(rawImpact),
       measure: measureField.input.value,
       responsible: responsibleField.input.value,
-      status: isEdit ? risk.status : 'open',
+      status: isEdit ? statusField.input.value : 'open',
     };
 
     const { valid, errors } = validateRisk(validationData);
@@ -206,14 +257,22 @@ export function renderRiskForm(container, { risk = null, onSubmit, onCancel } = 
     clearFieldErrors();
 
     if (typeof onSubmit === 'function') {
-      onSubmit({
+      const payload = {
         title: validationData.title,
         description: validationData.description,
         probability: validationData.probability,
         impact: validationData.impact,
         measure: validationData.measure,
         responsible: validationData.responsible,
-      });
+      };
+      // Статус передаётся в onSubmit только при редактировании — так
+      // выбранный в форме статус доходит до updateRisk(). При создании
+      // поле статуса намеренно не передаётся: createRisk() сама проставляет
+      // 'open', а форма создания вообще не содержит элемента статуса.
+      if (isEdit) {
+        payload.status = validationData.status;
+      }
+      onSubmit(payload);
     }
   });
 
