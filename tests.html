@@ -22,6 +22,8 @@
 
   <script type="module">
     import { registerRiskModelTests } from './js/tests/risk-model.test.js';
+    import { registerStorageTests } from './js/tests/storage.test.js';
+    import { STORAGE_KEY } from './js/storage.js';
 
     const results = [];
 
@@ -62,7 +64,26 @@
       },
     };
 
+    // Снимок продакшн-ключа делается до запуска любых тестов (включая
+    // тесты risk-model.js, которые localStorage не трогают) и сверяется
+    // после полного прогона — тесты storage.js обязаны работать только со
+    // своими собственными тестовыми ключами и не задевать продакшн-ключ.
+    const productionKeyBefore = localStorage.getItem(STORAGE_KEY);
+
     registerRiskModelTests(test, assert);
+    registerStorageTests(test, assert);
+
+    test('Продакшн-ключ project-risk-tracker:v1 не изменён тестами', () => {
+      const productionKeyAfter = localStorage.getItem(STORAGE_KEY);
+      assert.strictEqual(
+        productionKeyAfter,
+        productionKeyBefore,
+        'сырое значение продакшн-ключа должно остаться побайтно тем же после прогона тестов',
+      );
+    });
+
+    console.log('Продакшн-ключ до прогона тестов:', productionKeyBefore);
+    console.log('Продакшн-ключ после прогона тестов:', localStorage.getItem(STORAGE_KEY));
 
     const summaryEl = document.getElementById('summary');
     const listEl = document.getElementById('results');
