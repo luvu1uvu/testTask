@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Трекер рисков проекта</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="app-header">
+  <div class="header-inner">
+    <div class="brand">
+      <span class="brand-icon">⚠️</span>
+      <div>
+        <h1>Трекер рисков проекта</h1>
+        <p class="subtitle">Учёт, оценка и реагирование на риски</p>
+      </div>
+    </div>
+    <button id="btnAddRisk" class="btn btn-primary">+ Добавить риск</button>
+  </div>
+</header>
+
+<main class="container">
+
+  <section class="stats-row" id="statsRow" aria-label="Сводка">
+    <!-- заполняется JS -->
+  </section>
+
+  <section class="board">
+    <div class="panel matrix-panel">
+      <div class="panel-header">
+        <h2>Матрица рисков</h2>
+        <button id="btnClearMatrixFilter" class="btn btn-ghost btn-sm" hidden>Сбросить выбор</button>
+      </div>
+      <div class="matrix-wrap">
+        <div class="matrix-axis-y">Влияние</div>
+        <div id="riskMatrix" class="matrix"></div>
+      </div>
+      <div class="matrix-axis-x">Вероятность</div>
+      <div class="matrix-legend">
+        <span class="legend-item"><i class="dot lvl-low"></i>Низкий</span>
+        <span class="legend-item"><i class="dot lvl-medium"></i>Средний</span>
+        <span class="legend-item"><i class="dot lvl-high"></i>Высокий</span>
+        <span class="legend-item"><i class="dot lvl-critical"></i>Критический</span>
+      </div>
+    </div>
+
+    <div class="panel list-panel">
+      <div class="panel-header">
+        <h2>Реестр рисков</h2>
+        <div class="list-controls">
+          <input id="searchInput" type="search" placeholder="Поиск по названию…" class="input search-input">
+          <select id="filterCategory" class="input"></select>
+          <select id="filterPriority" class="input">
+            <option value="">Все приоритеты</option>
+            <option value="low">Низкий</option>
+            <option value="medium">Средний</option>
+            <option value="high">Высокий</option>
+            <option value="critical">Критический</option>
+          </select>
+          <select id="filterStatus" class="input">
+            <option value="">Все статусы</option>
+            <option value="open">Открыт</option>
+            <option value="in_progress">В работе</option>
+            <option value="mitigated">Снижен</option>
+            <option value="closed">Закрыт</option>
+          </select>
+          <select id="sortBy" class="input">
+            <option value="priority_desc">Сортировка: приоритет ↓</option>
+            <option value="priority_asc">Сортировка: приоритет ↑</option>
+            <option value="created_desc">Сначала новые</option>
+            <option value="created_asc">Сначала старые</option>
+            <option value="title_asc">По названию</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="riskListEmpty" class="empty-state" hidden>
+        <p>Рисков пока нет.</p>
+        <button class="btn btn-primary" id="btnAddRiskEmpty">Добавить первый риск</button>
+      </div>
+
+      <div id="riskList" class="risk-list"></div>
+    </div>
+  </section>
+
+  <footer class="app-footer">
+    <div class="footer-actions">
+      <button id="btnExport" class="btn btn-ghost btn-sm">Экспорт JSON</button>
+      <label class="btn btn-ghost btn-sm file-label">
+        Импорт JSON
+        <input type="file" id="importFile" accept="application/json" hidden>
+      </label>
+      <button id="btnSeed" class="btn btn-ghost btn-sm">Загрузить пример</button>
+      <button id="btnClearAll" class="btn btn-ghost btn-sm danger">Очистить всё</button>
+    </div>
+    <p class="footer-note">Данные хранятся локально в вашем браузере (localStorage). Ничего не отправляется на сервер.</p>
+  </footer>
+
+</main>
+
+<!-- Модальное окно добавления/редактирования риска -->
+<div id="riskModal" class="modal-overlay" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    <div class="modal-header">
+      <h2 id="modalTitle">Новый риск</h2>
+      <button id="btnCloseModal" class="btn-icon" aria-label="Закрыть">✕</button>
+    </div>
+    <form id="riskForm" class="modal-body">
+      <input type="hidden" id="riskId">
+
+      <div class="form-row">
+        <label for="riskTitle">Название риска *</label>
+        <input id="riskTitle" class="input" type="text" required maxlength="140" placeholder="Например: Задержка поставки оборудования">
+      </div>
+
+      <div class="form-row">
+        <label for="riskDescription">Описание</label>
+        <textarea id="riskDescription" class="input" rows="3" placeholder="Кратко опишите причину и возможные последствия"></textarea>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-row">
+          <label for="riskCategory">Категория</label>
+          <select id="riskCategory" class="input">
+            <option value="technical">Технический</option>
+            <option value="schedule">Сроки</option>
+            <option value="budget">Бюджет</option>
+            <option value="resource">Ресурсы</option>
+            <option value="scope">Содержание</option>
+            <option value="external">Внешний</option>
+            <option value="other">Другое</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="riskOwner">Ответственный</label>
+          <input id="riskOwner" class="input" type="text" maxlength="80" placeholder="Имя ответственного">
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-row">
+          <label for="riskProbability">Вероятность: <span id="probValue">3</span> / 5</label>
+          <input id="riskProbability" type="range" min="1" max="5" step="1" value="3" class="slider">
+          <div class="slider-scale"><span>Редко</span><span>Почти неизбежно</span></div>
+        </div>
+        <div class="form-row">
+          <label for="riskImpact">Влияние: <span id="impactValue">3</span> / 5</label>
+          <input id="riskImpact" type="range" min="1" max="5" step="1" value="3" class="slider">
+          <div class="slider-scale"><span>Незначительное</span><span>Критическое</span></div>
+        </div>
+      </div>
+
+      <div class="priority-preview">
+        Приоритет: <span id="priorityPreviewScore">9</span> баллов —
+        <span id="priorityPreviewLabel" class="badge lvl-medium">Средний</span>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-row">
+          <label for="riskResponseStrategy">Стратегия реагирования</label>
+          <select id="riskResponseStrategy" class="input">
+            <option value="avoid">Избежать</option>
+            <option value="mitigate">Снизить</option>
+            <option value="transfer">Передать</option>
+            <option value="accept">Принять</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label for="riskStatus">Статус</label>
+          <select id="riskStatus" class="input">
+            <option value="open">Открыт</option>
+            <option value="in_progress">В работе</option>
+            <option value="mitigated">Снижен</option>
+            <option value="closed">Закрыт</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <label for="riskMitigation">Меры реагирования / план действий</label>
+        <textarea id="riskMitigation" class="input" rows="3" placeholder="Что нужно сделать, чтобы снизить вероятность или влияние риска"></textarea>
+      </div>
+
+      <div class="form-row">
+        <label for="riskDueDate">Срок реагирования</label>
+        <input id="riskDueDate" class="input" type="date">
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" id="btnDeleteRisk" class="btn btn-ghost danger" hidden>Удалить</button>
+        <div class="modal-footer-right">
+          <button type="button" id="btnCancelModal" class="btn btn-ghost">Отмена</button>
+          <button type="submit" class="btn btn-primary">Сохранить</button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="app.js"></script>
+</body>
+</html>
