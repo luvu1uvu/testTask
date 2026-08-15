@@ -2,11 +2,12 @@
 // фильтр статуса, сортирует через модель и переключает между видом реестра
 // и видом формы создания/редактирования риска.
 
-import { getAll, addRisk, updateRisk } from './storage.js';
+import { getAll, addRisk, updateRisk, deleteRisk, resetStorage } from './storage.js';
 import { compareRisks, createRisk } from './risk-model.js';
 import { renderRiskList } from './ui/risk-list.js';
 import { renderRiskForm } from './ui/risk-form.js';
 import { renderFilters, getStatusesForFilter, DEFAULT_FILTER } from './ui/filters.js';
+import { renderDataError } from './ui/data-error.js';
 
 function main() {
   const container = document.getElementById('risk-list-container');
@@ -20,21 +21,40 @@ function main() {
   // шаге не требуется.
   let currentFilter = DEFAULT_FILTER;
 
-  function loadAllRisks() {
-    const result = getAll();
-    // Отдельный экран для повреждённых данных — шаг 6. Здесь, чтобы не
-    // падать и не перезаписывать хранилище, повреждённые данные на этом
-    // шаге отображаются как пустой реестр.
-    return result.status === 'ok' ? result.risks : [];
-  }
-
   function resetFilter() {
     currentFilter = DEFAULT_FILTER;
     showList();
   }
 
+  // Вызывается только после подтверждения в диалоге data-error.js — сам
+  // клик по кнопке «Сбросить данные» диалог не обходит.
+  function handleResetData() {
+    resetStorage();
+    showList();
+  }
+
+  // Вызывается только после подтверждения в диалоге risk-list.js — сам клик
+  // по кнопке «Удалить» в строке deleteRisk() не вызывает.
+  function handleDelete(id) {
+    deleteRisk(id);
+    showList();
+  }
+
   function showList() {
-    const allRisks = loadAllRisks();
+    const result = getAll();
+
+    if (result.status === 'corrupted') {
+      // Повреждённые или неподдерживаемые данные — реестр, фильтры и кнопки
+      // создания скрываются целиком, вместо них экран ошибки с кнопкой
+      // сброса (сама localStorage не трогается, пока пользователь не
+      // подтвердит сброс в отдельном диалоге).
+      addButton.hidden = true;
+      filtersContainer.hidden = true;
+      renderDataError(container, { onReset: handleResetData });
+      return;
+    }
+
+    const allRisks = result.risks;
     const isStoreEmpty = allRisks.length === 0;
     const statusesForFilter = getStatusesForFilter(currentFilter);
     const filteredRisks = allRisks
@@ -60,6 +80,7 @@ function main() {
     renderRiskList(container, filteredRisks, {
       onCreateFirst: showCreateForm,
       onEdit: showEditForm,
+      onDelete: handleDelete,
       onResetFilters: resetFilter,
       isStoreEmpty,
     });

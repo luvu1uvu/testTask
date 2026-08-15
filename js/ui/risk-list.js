@@ -6,6 +6,7 @@
 // фильтр не вернул ни одной записи.
 
 import { calculateScore, getPriorityLevel, getPriorityLabel, getStatusLabel } from '../risk-model.js';
+import { showConfirmDialog } from './dialogs.js';
 
 const EMPTY_MESSAGE =
   'В проекте пока нет рисков. Добавьте первый риск, чтобы оценить его приоритет и назначить меру реагирования';
@@ -58,7 +59,7 @@ function createEmptyFilterState(onResetFilters) {
   return wrapper;
 }
 
-function createRiskRow(risk, onEdit) {
+function createRiskRow(risk, onEdit, onDelete) {
   const score = calculateScore(risk.probability, risk.impact);
   const priorityLevel = getPriorityLevel(score);
   const priorityLabel = getPriorityLabel(score);
@@ -93,6 +94,9 @@ function createRiskRow(risk, onEdit) {
   responsibleCell.textContent = risk.responsible || '—';
 
   const actionsCell = document.createElement('td');
+  const actionsWrapper = document.createElement('div');
+  actionsWrapper.className = 'row-actions';
+
   const editButton = document.createElement('button');
   editButton.type = 'button';
   editButton.className = 'btn btn--secondary btn--small';
@@ -100,13 +104,33 @@ function createRiskRow(risk, onEdit) {
   editButton.addEventListener('click', () => {
     if (typeof onEdit === 'function') onEdit(risk.id);
   });
-  actionsCell.appendChild(editButton);
+
+  const deleteButton = document.createElement('button');
+  deleteButton.type = 'button';
+  deleteButton.className = 'btn btn--secondary btn--small';
+  deleteButton.textContent = 'Удалить';
+  deleteButton.addEventListener('click', () => {
+    // Первый клик только открывает подтверждение — deleteRisk() вызывается
+    // (через onDelete из app.js) исключительно из onConfirm диалога.
+    showConfirmDialog({
+      message: `Удалить риск „${risk.title}“? Запись будет удалена без возможности восстановления`,
+      confirmLabel: 'Удалить',
+      cancelLabel: 'Отмена',
+      danger: true,
+      onConfirm: () => {
+        if (typeof onDelete === 'function') onDelete(risk.id);
+      },
+    });
+  });
+
+  actionsWrapper.append(editButton, deleteButton);
+  actionsCell.appendChild(actionsWrapper);
 
   row.append(titleCell, scaleCell, scoreCell, priorityCell, statusCell, measureCell, responsibleCell, actionsCell);
   return row;
 }
 
-function createRiskTable(risks, onEdit) {
+function createRiskTable(risks, onEdit, onDelete) {
   const table = document.createElement('table');
   table.className = 'risk-table';
 
@@ -130,7 +154,7 @@ function createRiskTable(risks, onEdit) {
 
   const tbody = document.createElement('tbody');
   for (const risk of risks) {
-    tbody.appendChild(createRiskRow(risk, onEdit));
+    tbody.appendChild(createRiskRow(risk, onEdit, onDelete));
   }
 
   table.append(thead, tbody);
@@ -141,12 +165,18 @@ function createRiskTable(risks, onEdit) {
 // пуст, иначе таблицу реестра. risks должен быть уже отфильтрован и
 // отсортирован вызывающим кодом. callbacks.onCreateFirst — клик по кнопке
 // пустого состояния реестра; callbacks.onEdit(id) — клик по кнопке
-// «Изменить» в строке; callbacks.onResetFilters — клик по кнопке «Сбросить
+// «Изменить» в строке; callbacks.onDelete(id) — вызывается только после
+// подтверждения в диалоге удаления (сам диалог показывает эта модуль, не
+// вызывающий код); callbacks.onResetFilters — клик по кнопке «Сбросить
 // фильтры» в пустом состоянии фильтра. isStoreEmpty различает пустой список
 // из-за действительно пустого хранилища (true) и пустой список из-за того,
 // что текущий фильтр не вернул записей при непустом хранилище (false) —
 // это два разных состояния из SPEC.md, а не одно.
-export function renderRiskList(container, risks, { onCreateFirst, onEdit, onResetFilters, isStoreEmpty = false } = {}) {
+export function renderRiskList(
+  container,
+  risks,
+  { onCreateFirst, onEdit, onDelete, onResetFilters, isStoreEmpty = false } = {},
+) {
   container.innerHTML = '';
   if (risks.length === 0) {
     container.appendChild(isStoreEmpty ? createEmptyState(onCreateFirst) : createEmptyFilterState(onResetFilters));
@@ -155,6 +185,6 @@ export function renderRiskList(container, risks, { onCreateFirst, onEdit, onRese
 
   const wrapper = document.createElement('div');
   wrapper.className = 'risk-table-wrapper';
-  wrapper.appendChild(createRiskTable(risks, onEdit));
+  wrapper.appendChild(createRiskTable(risks, onEdit, onDelete));
   container.appendChild(wrapper);
 }
